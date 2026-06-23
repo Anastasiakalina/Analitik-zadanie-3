@@ -57,7 +57,7 @@ def analyze_data(file_path: str, user_instruction: str) -> dict:
 
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            csv_content = f.read(10000)  # Читаем первые 10KB
+            csv_content = f.read(10000)
 
         file_check = check_csv_safety(csv_content)
         if not file_check["is_safe"]:
@@ -88,10 +88,30 @@ def analyze_data(file_path: str, user_instruction: str) -> dict:
             files_part = final_message.split("[FILES:")[1].split("]")[0]
             file_names = [f.strip() for f in files_part.split(",")]
             for fname in file_names:
-                if os.path.exists(fname):
-                    generated_files.append(fname)
+                fname = fname.strip().strip("'").strip('"')
+                possible_paths = [
+                    fname,
+                    os.path.basename(fname),
+                    f"/app/{os.path.basename(fname)}",
+                    f"./{os.path.basename(fname)}"
+                ]
+                found = False
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        generated_files.append(path)
+                        logger.info(f"✅ Найден график: {path}")
+                        found = True
+                        break
+                if not found:
+                    logger.warning(f"❌ График не найден: {fname}")
             text_report = final_message.split("[FILES:")[0].strip()
 
+        if not generated_files:
+            import glob
+            png_files = glob.glob("*.png") + glob.glob("/app/*.png")
+            generated_files = png_files[:5]
+            if generated_files:
+                logger.info(f"🔍 Найдены PNG через fallback: {generated_files}")
         logger.info(f"=== АНАЛИЗ ЗАВЕРШЁН. Графиков: {len(generated_files)} ===")
         return {"text": text_report, "files": generated_files}
 

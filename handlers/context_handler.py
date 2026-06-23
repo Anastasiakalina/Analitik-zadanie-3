@@ -48,7 +48,6 @@ async def receive_context(message: Message, state: FSMContext):
         logger.error(f"Ошибка анализа: {e}", exc_info=True)
         await message.answer(f"⚠️ Ошибка при анализе: {str(e)}")
 
-    # Возвращаемся в idle, файл остаётся в данных
     await state.set_state(AnalysisStates.idle)
 
     await message.answer(
@@ -93,9 +92,17 @@ async def handle_followup(message: Message, state: FSMContext):
             for chunk in [result["text"][i:i + 4096] for i in range(0, len(result["text"]), 4096)]:
                 await message.answer(chunk)
 
+        logger.info(f"📊 Отправка графиков: {result['files']}")
+
         for img_path in result["files"]:
-            if os.path.exists(img_path):
-                await message.answer_photo(FSInputFile(img_path), caption="📊 График")
+            try:
+                if os.path.exists(img_path):
+                    await message.answer_photo(FSInputFile(img_path), caption="📊 График")
+                    logger.info(f"✅ Отправлен график: {img_path}")
+                else:
+                    logger.warning(f"❌ Файл не существует: {img_path}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка отправки {img_path}: {e}")
 
     except Exception as e:
         logger.error(f"Ошибка доп. вопроса: {e}", exc_info=True)
